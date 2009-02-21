@@ -12,9 +12,16 @@ char *const args[] = {"teapop", "-n", "-N", "-L", "-t600", NULL};
 
 #define MAXLOAD 20.0
 
+void flusha()
+{
+	fflush(stdout);
+	fflush(stdin);
+}
+
 void banner() 
 {
-	printf("+OK Fakepop - <%d.%d%04x@tatui>\n", time(NULL), getpid(), rand());
+	printf("+OK Fakepop - <%d.%d%04x@tatui>\r\n", time(NULL), getpid(), rand());
+	flusha();
 }
 
 double getload()
@@ -24,20 +31,20 @@ double getload()
 	double load;
 	char *ptr;
 	if (!f) {
-		fprintf(stderr, "CANNOT LOAD LOADAVG FILE: %s", loadavgfile);
+		// fprintf(stderr, "CANNOT LOAD LOADAVG FILE: %s", loadavgfile);
 		return 100.0;
 	}
 	fgets(line, 1024, f);
-	load = strtold(line, &ptr);
+	load = strtod(line, &ptr);
 	fclose(f);
-	fprintf(stderr, "Load: %.2f\n", load);
 	return load;
 	
 }
 
 void ok(const char *msg)
 {
-	printf("+OK %s\n", msg);
+	printf("+OK %s\r\n", msg);
+	flusha();
 }
 
 void bye()
@@ -47,7 +54,8 @@ void bye()
 
 void err(const char *msg)
 {
-	printf("-ERR %s\n", msg);
+	printf("-ERR %s\r\n", msg);
+	flusha();
 }
 
 int status = 0;
@@ -55,37 +63,62 @@ int status = 0;
 int do_capa()
 {
 	ok("These are my limits, Sir");
-	printf("TOP\n");
-	printf("USER\n");
-	printf("LOGIN-DELAY\n");
-	printf("EXPIRE NEVER\n");
-	printf("IMPLEMENTATION OverLoadPop-1\n");
-	printf(".\n");
+	printf("TOP\r\n");
+	printf("USER\r\n");
+	printf("LOGIN-DELAY 600\r\n");
+	printf("EXPIRE NEVER\r\n");
+	printf("IMPLEMENTATION OverLoadPop-1\r\n");
+	printf(".\r\n");
+	flusha();
 }
 
 
 int do_command(FILE *f)
 {
 	char buf[1024];
-	const char *ptr = fgets(buf, 1024, f);
-	if (!strncasecmp(ptr, "QUIT", 4)) {
+	char *eptr;
+	char line[128];
+	flusha();
+	char *ptr = fgets(buf, 1024, f);
+
+	if (!ptr) {
+		sprintf(line, "Erro ao tentar ler comando: %d", errno);
+		// perror("perror: Erro ao tentar ler comando: ");
+		syslog(LOG_ERR, line);
+		return 0;
+	}
+
+	for (eptr = (char *)buf; eptr < buf + 1023 && *eptr != '\r' && *eptr != '\n'; eptr++);
+	*eptr = 0;
+
+	if (strncasecmp(buf, "PASS", 4)) {
+		syslog(LOG_INFO, buf);
+	}
+	// fprintf(stderr, "Comando: [%s]\n", buf);
+	// fflush(stderr);
+	if (!strncasecmp(buf, "QUIT", 4)) {
 		return do_quit();
 	}
-	if (!strncasecmp(ptr, "CAPA", 4)) {
+	if (!strncasecmp(buf, "CAPA", 4)) {
 		do_capa();
 		return 1;
 	}
 	switch(status) {
 		case 0:
-			if (!strncasecmp(ptr, "USER", 4)) {
+			if (!strncasecmp(buf, "USER", 4)) {
 				ok("Entre sua senha");
 				status = 1;
+				break;
+			}
+			if (!strncasecmp(buf, "APOP", 4)) {
+				ok("You have 0 messages (0 bytes)");
+				status = 2;
 				break;
 			}
 			err("Comando desconhecido");
 			break;
 		case 1:
-			if (!strncasecmp(ptr, "PASS", 4)) {
+			if (!strncasecmp(buf, "PASS", 4)) {
 				ok("Senha aceita");
 				status = 2;
 				break;
@@ -93,15 +126,31 @@ int do_command(FILE *f)
 			err("Comando desconhecido");
 			break;
 		case 2:
-			if (!strncasecmp(ptr, "LIST", 4)) {
-				ok("0 messages");
+			if (!strncasecmp(buf, "STAT", 4)) {
+				ok("0 0");
 				break;
 			}
-			if (!strncasecmp(ptr, "TOP", 3)) {
+			if (!strcasecmp(buf, "UIDL", 4)) {
+				ok("");
+				printf(".\r\n");
+				flusha();
+				break;
+			}
+			if (!strncasecmp(buf, "UIDL", 4)) {
+				err("Mensagem invalida");
+				break;
+			}
+			if (!strncasecmp(buf, "LIST", 4)) {
+				ok("0 messages");
+				printf(".\r\n");
+				flusha();
+				break;
+			}
+			if (!strncasecmp(buf, "TOP", 3)) {
 				err("Mensagem desconhecida");
 				break;
 			}
-			if (!strncasecmp(ptr, "RETR", 4)) {
+			if (!strncasecmp(buf, "RETR", 4)) {
 				err("Mensagem desconhecida");
 				break;
 			}
@@ -113,6 +162,7 @@ int do_command(FILE *f)
 
 int do_quit()
 {
+	flusha();
 	return 0;
 }
 
@@ -134,6 +184,7 @@ int main(int argc, char **argv)
 {
 	double load = getload();
 
+	chdir("/tmp");
 	openlog("fakepop", LOG_PID, LOG_LOCAL0);
 	if (load < MAXLOAD) {
 		execpop();
