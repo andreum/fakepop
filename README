@@ -1,0 +1,17 @@
+
+This is a simple binary file for linux that allows a inetd, tcpd or 
+xinetd-run pop server, i.e.  one that reads data from stdin and writes 
+to stdout, to deal with I/O overload by running a dummy POP session 
+if the load is above a certain threshold.
+
+This software was made for internal use and has no frills, no run-time 
+configuration without recompilation. It comes AS IS, without support or
+any warranty. It is put under an Apache license in the hope that it will
+be useful.
+
+It was a 3-hour effort and sice it served its purpose, no further.
+development on it is expected. But you are free to use it as you see
+fit, incorporate in other software, even sell it if you need to, I
+only request that you give credit to it according to the License.
+
+
