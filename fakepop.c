@@ -5,12 +5,14 @@
 #include <errno.h>
 #include <syslog.h>
 
+/* This is the editable part */
 const char *loadavgfile = "/proc/loadavg";
-
 const char *const cmd = "/usr/local/teapop/libexec/teapop";
 char *const args[] = {"teapop", "-n", "-N", "-L", "-t600", NULL};
 
 #define MAXLOAD 20.0
+
+/* Below this there is nothing user-serviceable */
 
 void flusha()
 {
@@ -31,7 +33,6 @@ double getload()
 	double load;
 	char *ptr;
 	if (!f) {
-		// fprintf(stderr, "CANNOT LOAD LOADAVG FILE: %s", loadavgfile);
 		return 100.0;
 	}
 	fgets(line, 1024, f);
@@ -49,7 +50,7 @@ void ok(const char *msg)
 
 void bye()
 {
-	ok("Ate mais tarde");
+	ok("See you later");
 }
 
 void err(const char *msg)
@@ -82,7 +83,7 @@ int do_command(FILE *f)
 	char *ptr = fgets(buf, 1024, f);
 
 	if (!ptr) {
-		sprintf(line, "Erro ao tentar ler comando: %d", errno);
+		sprintf(line, "Error while reading command: %d", errno);
 		// perror("perror: Erro ao tentar ler comando: ");
 		syslog(LOG_ERR, line);
 		return 0;
@@ -94,8 +95,6 @@ int do_command(FILE *f)
 	if (strncasecmp(buf, "PASS", 4)) {
 		syslog(LOG_INFO, buf);
 	}
-	// fprintf(stderr, "Comando: [%s]\n", buf);
-	// fflush(stderr);
 	if (!strncasecmp(buf, "QUIT", 4)) {
 		return do_quit();
 	}
@@ -106,7 +105,7 @@ int do_command(FILE *f)
 	switch(status) {
 		case 0:
 			if (!strncasecmp(buf, "USER", 4)) {
-				ok("Entre sua senha");
+				ok("Enter your password");
 				status = 1;
 				break;
 			}
@@ -115,15 +114,15 @@ int do_command(FILE *f)
 				status = 2;
 				break;
 			}
-			err("Comando desconhecido");
+			err("Unknown Command (USER or APOP required)");
 			break;
 		case 1:
 			if (!strncasecmp(buf, "PASS", 4)) {
-				ok("Senha aceita");
+				ok("Password accepted");
 				status = 2;
 				break;
 			}
-			err("Comando desconhecido");
+			err("Unknown Command (PASS required)");
 			break;
 		case 2:
 			if (!strncasecmp(buf, "STAT", 4)) {
@@ -155,7 +154,7 @@ int do_command(FILE *f)
 				break;
 			}
 		default:
-			err("Comando desconhecido");
+			err("Unknown Command");
 	}
 	return 1;
 }
@@ -172,8 +171,8 @@ void execpop()
 	if (err = execvp(cmd, args)) {
 		char *erro;
 		char buf[1024];
-		snprintf(buf, 1024, "erro em exec: %d", errno);
-		perror("Nao rolou: ");
+		snprintf(buf, 1024, "Error in exec: %d", errno);
+		perror("Run impossible: ");
 		syslog(LOG_ERR, buf);
 		exit(err);
 	};
